@@ -10,6 +10,12 @@ from subprocess import PIPE, Popen
 import sys, os, pwd, subprocess, errno, socket, select, mmap, stat, re, struct
 import hashlib, heapq, math, operator, time, grp, tempfile
 
+try:
+    from setproctitle import setproctitle
+except ImportError:
+    def setproctitle(s):
+        pass
+
 from bup import _helpers
 from bup import compat
 from bup.compat import argv_bytes, byte_int
@@ -23,13 +29,21 @@ class Nonlocal:
     """Helper to deal with Python scoping issues"""
     pass
 
-
 sc_page_size = os.sysconf('SC_PAGE_SIZE')
 assert(sc_page_size > 0)
 
 sc_arg_max = os.sysconf('SC_ARG_MAX')
 if sc_arg_max == -1:  # "no definite limit" - let's choose 2M
     sc_arg_max = 2 * 1024 * 1024
+
+# Replace the proc title with the content of sys.argv, and remove the path from
+# the 'install/dir/bup' argument.
+if compat.argv:
+    arg0 = compat.argvb[0]
+    argv = [arg0[arg0.rfind(b"/") + 1:]]
+    argv += compat.argvb[1:]
+    title = b" ".join(argv)
+    setproctitle(title.decode(errors="ignore"))
 
 def last(iterable):
     result = None
